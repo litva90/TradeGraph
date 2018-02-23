@@ -81,19 +81,11 @@ export class GraphComponent implements OnInit {
     let intervals = (this.canvas.width / 800) * 10;
     const context = this.canvas.getContext('2d');
     const calculatedTimings = this.calculateTimings(timings);
-    console.log('calculatedTimings', calculatedTimings);
-    console.log('intervals', intervals)
     let shift = this.canvas.width / intervals;
     for (let count = 0, x = shift; count < calculatedTimings.length; count++, x += shift) {
       context.font="15px Georgia";
       context.fillText(calculatedTimings[count], x - context.measureText(calculatedTimings[count]).width/2, 385);
     }
-
-    // for (let x = this.canvas.width, num = 0; x >= 0; x -= this.canvas.width / intervals) {
-    //   context.font="20px Georgia";
-    //   context.fillText(calculatedTimings[num], x, 370);
-    //   num++;
-    // }
   }
 
   calculateTimings(timings: number[]): string[] {
