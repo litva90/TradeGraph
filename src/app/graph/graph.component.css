@@ -1,0 +1,10 @@
+.graph-container {
+    display: flex;
+    justify-content: center;
+}
+
+.graph-canvas {
+    max-width: 800px;
+    height: 400px;
+    outline:1px solid #000000;
+}
