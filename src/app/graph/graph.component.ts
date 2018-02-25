@@ -44,8 +44,8 @@ export class GraphComponent implements OnInit {
   drawGrid() {
     if (!this.canvas) return;
 
-    const bottomPadding = 30;
     const topPaddind = 10;
+    const bottomPadding = 30;
     const context = this.canvas.getContext('2d');
     const intervals = (this.canvas.width / 800) * 10;
     for (let x = 0; x <= this.canvas.width; x += this.canvas.width / intervals) {
@@ -57,6 +57,7 @@ export class GraphComponent implements OnInit {
     context.stroke();
   }
 
+  // Событие вызывает перерисовку графика при динамическом изменении ширины окна
   @HostListener('window:resize', ['$event'])
   onResize(e) {
     this.resizeCanvas();
@@ -75,7 +76,7 @@ export class GraphComponent implements OnInit {
 
   drawTradeData(tradeData: Trade) {
     this.drawTimings(tradeData.t);
-    this.drawCandlestick(tradeData.o, tradeData.c, tradeData.h, tradeData.l)
+    this.drawCandlestick(tradeData.o, tradeData.c, tradeData.h, tradeData.l, tradeData.v);
   }
 
   drawTimings(timings: number[]) {
@@ -107,62 +108,84 @@ export class GraphComponent implements OnInit {
     return hours.substr(-2) + ':' + minutes.substr(-2);
   }
 
-  drawCandlestick(buys: number[], sales: number[], maximums: number[], minimums: number[]) {
+  drawCandlestick(buys: number[], sales: number[], maximums: number[], minimums: number[], values: number[]) {
     const context = this.canvas.getContext('2d');
+
+    // Высчитывааем сколько свечей поместится на канву
     const candleCount = (this.canvas.width / 800) * 70;
-    const max = Math.max(...maximums.slice(maximums.length - candleCount));
-    const min = Math.min(...minimums.slice(minimums.length - candleCount));
+
+    // Получаем экстрэмумы значений продаж и покупок
+    const max = Math.max(...[...maximums.slice(maximums.length - candleCount), ...buys.slice(buys.length - candleCount), ...sales.slice(sales.length - candleCount)]);
+    const min = Math.min(...[...minimums.slice(minimums.length - candleCount), ...buys.slice(buys.length - candleCount), ...sales.slice(sales.length - candleCount)]);
+    
+    // Диапазон значений
     const volatile = max - min;
-    const bottomPadding = 30;
-    const topPaddind = 10;
+
+    // Экстрэмумы объема сделок
+    const maxValue = Math.max(...values.slice(values.length - candleCount));
+    const minValue = Math.min(...values.slice(values.length - candleCount));
+    const interval = maxValue - minValue;
+
     const candleWidth = 8;
-    //console.log('max: ', max, ', min: ', min, ', volatile: ', volatile, ', candleCount: ', candleCount)
-    for (let count = 0, x = candleWidth; count < candleCount; count++, x += 10) {
+    const workArea = this.canvas.height;
+    for (let count = 0, shift = candleWidth; count < candleCount; count++, shift += 10) {
+
+      // Получаем значения на открытии и закрытии сделки
       const buyValue = buys[buys.length - count - 1];
       const saleValue = sales[sales.length - count - 1];
 
-      const xTopBody = Math.floor((this.canvas.width-1)/80)*80 - x + (candleWidth/2);
-      const yTopBody = this.canvas.height - ((buyValue - min)/volatile)*(this.canvas.height - bottomPadding - topPaddind);
-      const yBottomBody = this.canvas.height - ((saleValue - min)/volatile)*(this.canvas.height - bottomPadding - topPaddind);
+      // Верхняя левая точка тела свечи
+      const xTopBody = Math.floor((this.canvas.width-1)/80)*80 - shift + (candleWidth/2);
+      const yTopBody = workArea - ((buyValue - min)/volatile) *workArea;
+
+      const yBottomBody = workArea - ((saleValue - min)/volatile) *workArea;
       const height = yTopBody - yBottomBody;
       
-      //console.log('xCoord1: ', xCoord1, ', yCoord1: ', yCoord1, ', buy: ', buyValue, ", sale: ", saleValue);
-      const color = height > 0 ? "#008000" : "#ff3300";
+      const color = saleValue - buyValue > 0 ? "#008000" : "#ff3300";
       context.fillStyle = color;
       context.strokeStyle = color;
 
+      // Значение объема сделок
+      const value = values[values.length - count - 1];
+
+      // Вычисляем экстрэмумы фителей
       const singleMax = maximums[maximums.length - count - 1];
       const singleMin = minimums[minimums.length - count - 1];
-      const yMaxFitile = this.canvas.height - ((singleMax - min)/volatile)*(this.canvas.height - bottomPadding - topPaddind);
-      const yMinFitile = this.canvas.height - ((singleMin - min)/volatile)*(this.canvas.height - bottomPadding - topPaddind);
 
-      // if (height > 0) {
-      //    const yTopBody = (this.canvas.height - bottomPadding - topPaddind) - ((maxAtCandleBody - min)/volatile)*(this.canvas.height - bottomPadding - topPaddind);
-      //    const maxCandleValue = (this.canvas.height - bottomPadding - topPaddind) - ((singleMax - min)/volatile)*(this.canvas.height - bottomPadding - topPaddind);
-      //    console.log('buyValue: ', buyValue, 'saleValue: ', saleValue, ', yTopBody: ', yTopBody, ', maxCandleValue', maxCandleValue , ', maxAtCandleBody: ', maxAtCandleBody, ', singleMax: ', singleMax);
-      //    //console.log('xCoord1: ', xCoord1, ', yCoord1: ', yCoord1, ', buy: ', buyValue, ", sale: ", saleValue);
-      //    context.beginPath();
-      //    context.moveTo(xCoord1 + candleWidth/2, yCoord1);
-      //    context.lineTo(xCoord1 + candleWidth/2, maxCandleValue);
-      //    context.stroke();
-      //   }
-
-      console.log('buyValue: ', buyValue, ', saleValue: ', saleValue, ', singleMax: ', singleMax, ', singleMin', singleMin)
+      // Вычисляем координаты фитилей
+      const yMaxFitile = workArea - ((singleMax - min)/volatile)*workArea;
+      const yMinFitile = workArea - ((singleMin - min)/volatile)*workArea;
+      
+      // Рисуем фитиль
       context.beginPath();
       context.moveTo(xTopBody + candleWidth/2, yMaxFitile);
       context.lineTo(xTopBody + candleWidth/2, yMinFitile);
       context.stroke();
 
+      // Рисуем тело свечи
       context.fillRect(xTopBody, yTopBody, 8, Math.abs(height) < 1 ? 1 : height);
+
+      // Устанавливаем прозрачность и отрисовываем объем
+      context.globalAlpha = 0.5;
+      this.drawValuesCount(value, candleWidth, candleCount, interval, shift);
+      context.globalAlpha = 1;
+
+      // console.log('buyValue: ', buyValue, ', saleValue: ', saleValue, ', singleMax: ', singleMax, ', singleMin', singleMin)
     }
-
-
-    // const intervals = (this.canvas.width / 800) * 10;
-    // let shift = this.canvas.width / intervals;
-    // for (let count = 0, x = shift; count < intervals; count++, x += shift) {
-    //   context.fillRect(x-4, 200, 8, 20);
-    // }
-    //context.fillRect(791, 150, 788, 150)
   }
 
+  // Отрисовка объема сделок
+  drawValuesCount(value: number, candleWidth: number, candleCount: number, interval: number, shift: number) {
+    const context = this.canvas.getContext('2d');
+
+    // Для отображения объема сделок отводим 60 пикс
+    const valuesHeigh = 60;
+
+    // Вычисляем верхнююлевую точку
+    const xTopValue = Math.floor((this.canvas.width-1)/80)*80 + (candleWidth/2) - shift;
+    const yTopValue = 370 - (value/interval)*valuesHeigh;
+
+    context.fillRect(xTopValue, yTopValue, 8, 370 - yTopValue);
+  
+  }
 }
